@@ -53,7 +53,7 @@ Create(or copy) a systemd service file:
 
 ```bash
 $ sudo cp ./systemd/telegram-bot-ngrok.service /lib/systemd/system/telegram-bot-ngrok.service
-sudo vi /lib/systemd/system/telegram-bot-ngrok.service
+$ sudo vi /lib/systemd/system/telegram-bot-ngrok.service
 ```
 
 Again, edit values:
