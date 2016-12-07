@@ -1,0 +1,14 @@
+{
+	"api_token": "0123456789:abcdefghijklmnopqrstuvwxyz",
+	"ngrok_bin_path": "/usr/local/bin/ngrok",
+	"available_ids": [
+		"telegram_id1",
+		"telegram_id2"
+	],
+	"monitor_interval": 3,
+	"tunnel_params": {
+		"http/s on port 8080": "http 8888",
+		"ssh on port 22": "tcp 22"
+	},
+	"is_verbose": false
+}
