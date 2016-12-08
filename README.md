@@ -47,6 +47,10 @@ Edit values:
 $ ./telegram-bot-ngrok
 ```
 
+![screen shot 2016-12-08 at 12 04 59](https://cloud.githubusercontent.com/assets/185988/20996144/ce7dd0ea-bd3e-11e6-9e30-0f2a9e724276.png)
+
+![screen shot 2016-12-08 at 12 05 26](https://cloud.githubusercontent.com/assets/185988/20996147/d0ea23e2-bd3e-11e6-8307-98ca07c59969.png)
+
 ## Run as a service
 
 Create(or copy) a systemd service file:
