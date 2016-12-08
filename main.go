@@ -37,17 +37,17 @@ const (
 	CommandCancel        = "/cancel"
 
 	// messages
-	MessageDefault                    = "Welcome"
-	MessageUnknownCommand             = "Unknown command"
-	MessageNoTunnels                  = "No tunnels available"
-	MessageNoConfiguredTunnels        = "No tunnes configured"
-	MessageWhatToLaunch               = "Choose to launch"
+	MessageDefault                    = "Welcome!"
+	MessageUnknownCommand             = "Unknown command."
+	MessageNoTunnels                  = "No tunnels available."
+	MessageNoConfiguredTunnels        = "No tunnels configured."
+	MessageWhatToLaunch               = "Which tunnel do you want to launch?"
 	MessageCancel                     = "Cancel"
-	MessageCanceled                   = "Canceled"
+	MessageCanceled                   = "Canceled."
 	MessageLaunchedSuccessfullyFormat = "Launched successfully: %s"
-	MessageLaunchFailed               = "Launch failed"
-	MessageShutdownSuccessfully       = "Shutdown successfully"
-	MessageShutdownSuccessfullyFormat = "Shutdown successfully: %s"
+	MessageLaunchFailed               = "Launch failed."
+	MessageShutdownSuccessfully       = "Shutdown successfully."
+	MessageShutdownSuccessfullyFormat = "Shutdown successfully. (%s)"
 	MessageShutdownFailedFormat       = "Failed to shutdown: %s"
 
 	// api url
@@ -196,7 +196,7 @@ func launchNgrok(params ...string) (message string, success bool) {
 		if tunnels, err := tunnelsStatus(); err == nil {
 			status := ""
 			for _, tunnel := range tunnels.Tunnels {
-				status += fmt.Sprintf("▸ %s: %s\n", tunnel.Name, tunnel.PublicUrl)
+				status += fmt.Sprintf("▸ %s\n    %s\n", tunnel.Name, tunnel.PublicUrl)
 			}
 			if len(status) <= 0 {
 				status = MessageNoTunnels
@@ -271,7 +271,6 @@ func processUpdate(b *bot.Bot, update bot.Update) bool {
 			Keyboard:       allKeyboards,
 			ResizeKeyboard: true,
 		},
-		//"parse_mode": bot.ParseModeMarkdown,
 	}
 
 	// 'is typing...'
@@ -409,11 +408,9 @@ func main() {
 			client.StartMonitoringUpdates(0, monitorInterval, func(b *bot.Bot, update bot.Update, err error) {
 				if err == nil {
 					if update.HasMessage() {
-						// process message
-						processUpdate(b, update)
+						processUpdate(b, update) // process message
 					} else if update.HasCallbackQuery() {
-						// process callback query
-						processCallbackQuery(b, update)
+						processCallbackQuery(b, update) // process callback query
 					}
 				} else {
 					log.Printf("*** Error while receiving update (%s)\n", err)
