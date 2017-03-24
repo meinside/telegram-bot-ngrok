@@ -9,8 +9,8 @@ Built with golang.
 ## Install and build
 
 ```bash
-$ git clone https://github.com/meinside/telegram-bot-ngrok.git
-$ cd telegram-bot-ngrok/
+$ go get -d github.com/meinside/telegram-bot-ngrok
+$ cd $GOPATH/src/github.com/meinside/telegram-bot-ngrok
 $ go build
 ```
 
