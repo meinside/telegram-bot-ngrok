@@ -154,16 +154,16 @@ func tunnelsStatus() (NgrokTunnels, error) {
 				return tunnels, nil
 			} else {
 				if isVerbose {
-					log.Printf("*** Failed to parse api response: %s\n", string(body))
+					log.Printf("*** Failed to parse api response: %s", string(body))
 				} else {
-					log.Printf("*** Failed to parse api response: %s\n", err)
+					log.Printf("*** Failed to parse api response: %s", err)
 				}
 			}
 		} else {
-			log.Printf("*** Failed to read api response: %s\n", err)
+			log.Printf("*** Failed to read api response: %s", err)
 		}
 	} else {
-		log.Printf("*** Failed to request to api: %s\n", err)
+		log.Printf("*** Failed to request to api: %s", err)
 	}
 
 	return NgrokTunnels{}, err
@@ -244,7 +244,7 @@ func processUpdate(b *bot.Bot, update bot.Update) bool {
 	// check username
 	var userId string
 	if update.Message.From.Username == nil {
-		log.Printf("*** Not allowed (no user name): %s\n", *update.Message.From.FirstName)
+		log.Printf("*** Not allowed (no user name): %s", update.Message.From.FirstName)
 		return false
 	}
 	userId = *update.Message.From.Username
@@ -286,22 +286,29 @@ func processUpdate(b *bot.Bot, update bot.Update) bool {
 			// inline keyboards for launching a tunnel
 			buttons := [][]bot.InlineKeyboardButton{}
 			for k, _ := range tunnelParams {
+				data := k
 				buttons = append(buttons, []bot.InlineKeyboardButton{
 					bot.InlineKeyboardButton{
 						Text:         k,
-						CallbackData: k,
+						CallbackData: &data,
 					},
 				})
 			}
+
+			// cancel button
+			cancel := CommandCancel
 			buttons = append(buttons, []bot.InlineKeyboardButton{
 				bot.InlineKeyboardButton{
 					Text:         MessageCancel,
-					CallbackData: CommandCancel,
+					CallbackData: &cancel,
 				},
 			})
+
+			// options
 			options["reply_markup"] = bot.InlineKeyboardMarkup{
 				InlineKeyboard: buttons,
 			}
+
 			message = MessageWhatToLaunch
 		} else {
 			message = MessageNoConfiguredTunnels
@@ -314,10 +321,10 @@ func processUpdate(b *bot.Bot, update bot.Update) bool {
 	}
 
 	// send message
-	if sent := b.SendMessage(update.Message.Chat.Id, &message, options); sent.Ok {
+	if sent := b.SendMessage(update.Message.Chat.Id, message, options); sent.Ok {
 		result = true
 	} else {
-		log.Printf("*** Failed to send message: %s\n", *sent.Description)
+		log.Printf("*** Failed to send message: %s", *sent.Description)
 	}
 
 	return result
@@ -344,12 +351,12 @@ func processCallbackQuery(b *bot.Bot, update bot.Update) bool {
 			if len(params) > 0 {
 				message, launchSuccessful = launchNgrok(params...)
 			} else {
-				log.Printf("*** No tunnel parameter\n")
+				log.Printf("*** No tunnel parameter")
 
 				return result // == false
 			}
 		} else {
-			log.Printf("*** Unprocessable callback query: %s\n", txt)
+			log.Printf("*** Unprocessable callback query: %s", txt)
 
 			return result // == false
 		}
@@ -374,13 +381,13 @@ func processCallbackQuery(b *bot.Bot, update bot.Update) bool {
 		if len(message) <= 0 {
 			message = MessageCanceled
 		}
-		if apiResult := b.EditMessageText(&message, options); apiResult.Ok {
+		if apiResult := b.EditMessageText(message, options); apiResult.Ok {
 			result = true
 		} else {
-			log.Printf("*** Failed to edit message text: %s\n", *apiResult.Description)
+			log.Printf("*** Failed to edit message text: %s", *apiResult.Description)
 		}
 	} else {
-		log.Printf("*** Failed to answer callback query: %+v\n", query)
+		log.Printf("*** Failed to answer callback query: %+v", query)
 	}
 
 	return result
@@ -400,7 +407,7 @@ func main() {
 
 	// get info about this bot
 	if me := client.GetMe(); me.Ok {
-		log.Printf("Launching bot: @%s (%s)\n", *me.Result.Username, *me.Result.FirstName)
+		log.Printf("Launching bot: @%s (%s)", *me.Result.Username, me.Result.FirstName)
 
 		// delete webhook (getting updates will not work when wehbook is set up)
 		if unhooked := client.DeleteWebhook(); unhooked.Ok {
@@ -413,7 +420,7 @@ func main() {
 						processCallbackQuery(b, update) // process callback query
 					}
 				} else {
-					log.Printf("*** Error while receiving update (%s)\n", err)
+					log.Printf("*** Error while receiving update (%s)", err)
 				}
 			})
 		} else {
