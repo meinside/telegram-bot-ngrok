@@ -22,36 +22,36 @@ import (
 )
 
 const (
-	ConfigFilename = "config.json"
+	configFilename = "config.json"
 
 	// for monitoring
-	DefaultMonitorIntervalSeconds = 3
+	defaultMonitorIntervalSeconds = 3
 
 	// for waiting while ngrok launches
-	NgrokLaunchDelaySeconds = 5
+	ngrokLaunchDelaySeconds = 5
 
 	// commands
-	CommandStart         = "/start"
-	CommandLaunchNgrok   = "/launch"
-	CommandShutdownNgrok = "/shutdown"
-	CommandCancel        = "/cancel"
+	commandStart         = "/start"
+	commandLaunchNgrok   = "/launch"
+	commandShutdownNgrok = "/shutdown"
+	commandCancel        = "/cancel"
 
 	// messages
-	MessageDefault                    = "Welcome!"
-	MessageUnknownCommand             = "Unknown command."
-	MessageNoTunnels                  = "No tunnels available."
-	MessageNoConfiguredTunnels        = "No tunnels configured."
-	MessageWhatToLaunch               = "Which tunnel do you want to launch?"
-	MessageCancel                     = "Cancel"
-	MessageCanceled                   = "Canceled."
-	MessageLaunchedSuccessfullyFormat = "Launched successfully: %s"
-	MessageLaunchFailed               = "Launch failed."
-	MessageShutdownSuccessfully       = "Shutdown successfully."
-	MessageShutdownSuccessfullyFormat = "Shutdown successfully. (%s)"
-	MessageShutdownFailedFormat       = "Failed to shutdown: %s"
+	messageDefault                    = "Welcome!"
+	messageUnknownCommand             = "Unknown command."
+	messageNoTunnels                  = "No tunnels available."
+	messageNoConfiguredTunnels        = "No tunnels configured."
+	messageWhatToLaunch               = "Which tunnel do you want to launch?"
+	messageCancel                     = "Cancel"
+	messageCanceled                   = "Canceled."
+	messageLaunchedSuccessfullyFormat = "Launched successfully: %s"
+	messageLaunchFailed               = "Launch failed."
+	messageShutdownSuccessfully       = "Shutdown successfully."
+	messageShutdownSuccessfullyFormat = "Shutdown successfully. (%s)"
+	messageShutdownFailedFormat       = "Failed to shutdown: %s"
 
 	// api url
-	TunnelsApiUrl = "http://localhost:4040/api/tunnels"
+	tunnelsAPIURL = "http://localhost:4040/api/tunnels"
 )
 
 // struct for config file
@@ -68,7 +68,7 @@ type Config struct {
 func getConfig() (config Config, err error) {
 	_, filename, _, _ := runtime.Caller(0) // = __FILE__
 
-	if file, err := ioutil.ReadFile(filepath.Join(path.Dir(filename), ConfigFilename)); err == nil {
+	if file, err := ioutil.ReadFile(filepath.Join(path.Dir(filename), configFilename)); err == nil {
 		var conf Config
 		if err := json.Unmarshal(file, &conf); err == nil {
 			return conf, nil
@@ -90,7 +90,7 @@ var isVerbose bool
 
 // keyboards
 var allKeyboards = [][]bot.KeyboardButton{
-	bot.NewKeyboardButtons(CommandLaunchNgrok, CommandShutdownNgrok),
+	bot.NewKeyboardButtons(commandLaunchNgrok, commandShutdownNgrok),
 }
 
 // https://ngrok.com/docs/2#client-api
@@ -120,7 +120,7 @@ func init() {
 		availableIds = config.AvailableIds
 		monitorInterval = config.MonitorInterval
 		if monitorInterval <= 0 {
-			monitorInterval = DefaultMonitorIntervalSeconds
+			monitorInterval = defaultMonitorIntervalSeconds
 		}
 		tunnelParams = config.TunnelParams
 		isVerbose = config.IsVerbose
@@ -144,7 +144,7 @@ func tunnelsStatus() (NgrokTunnels, error) {
 	var res *http.Response
 	var err error
 
-	if res, err = http.Get(TunnelsApiUrl); err == nil {
+	if res, err = http.Get(tunnelsAPIURL); err == nil {
 		defer res.Body.Close()
 
 		var body []byte
@@ -191,7 +191,7 @@ func launchNgrok(params ...string) (message string, success bool) {
 	}
 
 	if err := cmd.Start(); err == nil {
-		time.Sleep(NgrokLaunchDelaySeconds * time.Second)
+		time.Sleep(ngrokLaunchDelaySeconds * time.Second)
 
 		if tunnels, err := tunnelsStatus(); err == nil {
 			status := ""
@@ -199,7 +199,7 @@ func launchNgrok(params ...string) (message string, success bool) {
 				status += fmt.Sprintf("▸ %s\n    %s\n", tunnel.Name, tunnel.PublicUrl)
 			}
 			if len(status) <= 0 {
-				status = MessageNoTunnels
+				status = messageNoTunnels
 			}
 			return status, true
 		} else {
@@ -216,7 +216,7 @@ func shutdownNgrok() (message string, success bool) {
 	defer lock.Unlock()
 
 	if cmd == nil {
-		return fmt.Sprintf(MessageShutdownFailedFormat, "no running process"), false
+		return fmt.Sprintf(messageShutdownFailedFormat, "no running process"), false
 	} else {
 
 		if isVerbose {
@@ -229,9 +229,9 @@ func shutdownNgrok() (message string, success bool) {
 
 		var msg string
 		if err := cmd.Wait(); err == nil {
-			msg = MessageShutdownSuccessfully
+			msg = messageShutdownSuccessfully
 		} else {
-			msg = fmt.Sprintf(MessageShutdownSuccessfullyFormat, err)
+			msg = fmt.Sprintf(messageShutdownSuccessfullyFormat, err)
 		}
 		cmd = nil
 
@@ -274,14 +274,14 @@ func processUpdate(b *bot.Bot, update bot.Update) bool {
 	}
 
 	// 'is typing...'
-	b.SendChatAction(update.Message.Chat.Id, bot.ChatActionTyping)
+	b.SendChatAction(update.Message.Chat.ID, bot.ChatActionTyping)
 
 	switch {
 	// start
-	case strings.HasPrefix(txt, CommandStart):
-		message = MessageDefault
+	case strings.HasPrefix(txt, commandStart):
+		message = messageDefault
 	// launch
-	case strings.HasPrefix(txt, CommandLaunchNgrok):
+	case strings.HasPrefix(txt, commandLaunchNgrok):
 		if len(tunnelParams) > 0 {
 			// inline keyboards for launching a tunnel
 			buttons := [][]bot.InlineKeyboardButton{}
@@ -296,10 +296,10 @@ func processUpdate(b *bot.Bot, update bot.Update) bool {
 			}
 
 			// cancel button
-			cancel := CommandCancel
+			cancel := commandCancel
 			buttons = append(buttons, []bot.InlineKeyboardButton{
 				bot.InlineKeyboardButton{
-					Text:         MessageCancel,
+					Text:         messageCancel,
 					CallbackData: &cancel,
 				},
 			})
@@ -309,23 +309,23 @@ func processUpdate(b *bot.Bot, update bot.Update) bool {
 				InlineKeyboard: buttons,
 			}
 
-			message = MessageWhatToLaunch
+			message = messageWhatToLaunch
 		} else {
-			message = MessageNoConfiguredTunnels
+			message = messageNoConfiguredTunnels
 		}
-	case strings.HasPrefix(txt, CommandShutdownNgrok):
+	case strings.HasPrefix(txt, commandShutdownNgrok):
 		message, _ = shutdownNgrok()
 	// fallback
 	default:
 		if len(txt) > 0 {
-			message = fmt.Sprintf("%s: %s", txt, MessageUnknownCommand)
+			message = fmt.Sprintf("%s: %s", txt, messageUnknownCommand)
 		} else {
-			message = MessageUnknownCommand
+			message = messageUnknownCommand
 		}
 	}
 
 	// send message
-	if sent := b.SendMessage(update.Message.Chat.Id, message, options); sent.Ok {
+	if sent := b.SendMessage(update.Message.Chat.ID, message, options); sent.Ok {
 		result = true
 	} else {
 		log.Printf("*** Failed to send message: %s", *sent.Description)
@@ -344,10 +344,10 @@ func processCallbackQuery(b *bot.Bot, update bot.Update) bool {
 	launchSuccessful := false
 
 	// 'is typing...'
-	b.SendChatAction(query.Message.Chat.Id, bot.ChatActionTyping)
+	b.SendChatAction(query.Message.Chat.ID, bot.ChatActionTyping)
 
 	var message string = ""
-	if strings.HasPrefix(txt, CommandCancel) { // cancel command
+	if strings.HasPrefix(txt, commandCancel) { // cancel command
 		message = ""
 	} else {
 		if paramStr, exists := tunnelParams[txt]; exists {
@@ -370,20 +370,20 @@ func processCallbackQuery(b *bot.Bot, update bot.Update) bool {
 	options := map[string]interface{}{}
 	if len(message) > 0 {
 		if launchSuccessful {
-			options["text"] = fmt.Sprintf(MessageLaunchedSuccessfullyFormat, txt)
+			options["text"] = fmt.Sprintf(messageLaunchedSuccessfullyFormat, txt)
 		} else {
-			options["text"] = MessageLaunchFailed
+			options["text"] = messageLaunchFailed
 		}
 	}
-	if apiResult := b.AnswerCallbackQuery(query.Id, options); apiResult.Ok {
+	if apiResult := b.AnswerCallbackQuery(query.ID, options); apiResult.Ok {
 		// edit message and remove inline keyboards
 		options := map[string]interface{}{
-			"chat_id":    query.Message.Chat.Id,
-			"message_id": query.Message.MessageId,
+			"chat_id":    query.Message.Chat.ID,
+			"message_id": query.Message.MessageID,
 		}
 
 		if len(message) <= 0 {
-			message = MessageCanceled
+			message = messageCanceled
 		}
 		if apiResult := b.EditMessageText(message, options); apiResult.Ok {
 			result = true
