@@ -109,6 +109,9 @@ type NgrokTunnel struct {
 var lock sync.Mutex
 var cmd *exec.Cmd = nil
 
+var _stdout = log.New(os.Stdout, "", log.LstdFlags)
+var _stderr = log.New(os.Stderr, "", log.LstdFlags)
+
 // initialization
 func init() {
 	// read variables from config file
@@ -152,16 +155,16 @@ func tunnelsStatus() (NgrokTunnels, error) {
 				return tunnels, nil
 			} else {
 				if isVerbose {
-					log.Printf("*** Failed to parse api response: %s", string(body))
+					_stderr.Printf("failed to parse api response: %s", string(body))
 				} else {
-					log.Printf("*** Failed to parse api response: %s", err)
+					_stderr.Printf("failed to parse api response: %s", err)
 				}
 			}
 		} else {
-			log.Printf("*** Failed to read api response: %s", err)
+			_stderr.Printf("failed to read api response: %s", err)
 		}
 	} else {
-		log.Printf("*** Failed to request to api: %s", err)
+		_stderr.Printf("failed to request to api: %s", err)
 	}
 
 	return NgrokTunnels{}, err
@@ -174,7 +177,7 @@ func launchNgrok(params ...string) (message string, success bool) {
 
 	if cmd != nil {
 		if isVerbose {
-			log.Printf("launch: killing process...")
+			_stdout.Printf("launch: killing process...")
 		}
 
 		go func() {
@@ -185,7 +188,7 @@ func launchNgrok(params ...string) (message string, success bool) {
 	cmd = exec.Command(ngrokBinPath, params...)
 
 	if isVerbose {
-		log.Printf("launch: starting process...")
+		_stdout.Printf("launch: starting process...")
 	}
 
 	if err := cmd.Start(); err == nil {
@@ -218,7 +221,7 @@ func shutdownNgrok() (message string, success bool) {
 	} else {
 
 		if isVerbose {
-			log.Printf("shutdown: killing process...")
+			_stdout.Printf("shutdown: killing process...")
 		}
 
 		go func() {
@@ -242,12 +245,12 @@ func processUpdate(b *bot.Bot, update bot.Update) bool {
 	// check username
 	var userId string
 	if update.Message.From.Username == nil {
-		log.Printf("*** Not allowed (no user name): %s", update.Message.From.FirstName)
+		_stderr.Printf("not allowed (no user name): %s", update.Message.From.FirstName)
 		return false
 	}
 	userId = *update.Message.From.Username
 	if !isAvailableId(userId) {
-		log.Printf("*** Id not allowed: %s\n", userId)
+		_stderr.Printf("id not allowed: %s\n", userId)
 
 		return false
 	}
@@ -326,7 +329,7 @@ func processUpdate(b *bot.Bot, update bot.Update) bool {
 	if sent := b.SendMessage(update.Message.Chat.ID, message, options); sent.Ok {
 		result = true
 	} else {
-		log.Printf("*** Failed to send message: %s", *sent.Description)
+		_stderr.Printf("failed to send message: %s", *sent.Description)
 	}
 
 	return result
@@ -353,12 +356,12 @@ func processCallbackQuery(b *bot.Bot, update bot.Update) bool {
 			if len(params) > 0 {
 				message, launchSuccessful = launchNgrok(params...)
 			} else {
-				log.Printf("*** No tunnel parameter")
+				_stderr.Printf("no tunnel parameter")
 
 				return result // == false
 			}
 		} else {
-			log.Printf("*** Unprocessable callback query: %s", txt)
+			_stderr.Printf("unprocessable callback query: %s", txt)
 
 			return result // == false
 		}
@@ -386,10 +389,10 @@ func processCallbackQuery(b *bot.Bot, update bot.Update) bool {
 		if apiResult := b.EditMessageText(message, options); apiResult.Ok {
 			result = true
 		} else {
-			log.Printf("*** Failed to edit message text: %s", *apiResult.Description)
+			_stderr.Printf("failed to edit message text: %s", *apiResult.Description)
 		}
 	} else {
-		log.Printf("*** Failed to answer callback query: %+v", query)
+		_stderr.Printf("failed to answer callback query: %+v", query)
 	}
 
 	return result
@@ -409,7 +412,7 @@ func main() {
 
 	// get info about this bot
 	if me := client.GetMe(); me.Ok {
-		log.Printf("Launching bot: @%s (%s)", *me.Result.Username, me.Result.FirstName)
+		_stdout.Printf("launching bot: @%s (%s)", *me.Result.Username, me.Result.FirstName)
 
 		// delete webhook (getting updates will not work when wehbook is set up)
 		if unhooked := client.DeleteWebhook(); unhooked.Ok {
@@ -422,7 +425,7 @@ func main() {
 						processCallbackQuery(b, update) // process callback query
 					}
 				} else {
-					log.Printf("*** Error while receiving update (%s)", err)
+					_stderr.Printf("error while receiving update (%s)", err)
 				}
 			})
 		} else {
