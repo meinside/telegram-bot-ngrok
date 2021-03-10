@@ -53,8 +53,8 @@ const (
 )
 
 // struct for config file
-type Config struct {
-	ApiToken        string            `json:"api_token"`
+type config struct {
+	APIToken        string            `json:"api_token"`
 	NgrokBinPath    string            `json:"ngrok_bin_path"`
 	AvailableIds    []string          `json:"available_ids"`
 	MonitorInterval int               `json:"monitor_interval"`
@@ -63,19 +63,19 @@ type Config struct {
 }
 
 // Read config
-func getConfig() (config Config, err error) {
+func getConfig() (cfg config, err error) {
 	var execFilepath string
 	if execFilepath, err = os.Executable(); err == nil {
 		var file []byte
 		if file, err = ioutil.ReadFile(filepath.Join(filepath.Dir(execFilepath), configFilename)); err == nil {
-			var conf Config
+			var conf config
 			if err = json.Unmarshal(file, &conf); err == nil {
 				return conf, nil
 			}
 		}
 	}
 
-	return Config{}, err
+	return config{}, err
 }
 
 // variables
@@ -92,15 +92,15 @@ var allKeyboards = [][]bot.KeyboardButton{
 }
 
 // https://ngrok.com/docs/2#client-api
-type NgrokTunnels struct {
-	Tunnels []NgrokTunnel `json:"tunnels"`
-	Uri     string        `json:"uri"`
+type ngrokTunnels struct {
+	Tunnels []ngrokTunnel `json:"tunnels"`
+	URI     string        `json:"uri"`
 }
 
-type NgrokTunnel struct {
+type ngrokTunnel struct {
 	Name      string                 `json:"name"`
-	Uri       string                 `json:"uri"`
-	PublicUrl string                 `json:"public_url"`
+	URI       string                 `json:"uri"`
+	PublicURL string                 `json:"public_url"`
 	Proto     string                 `json:"proto"`
 	Config    map[string]interface{} `json:"config"`
 	Metrics   map[string]interface{} `json:"metrics"`
@@ -116,7 +116,7 @@ var _stderr = log.New(os.Stderr, "", log.LstdFlags)
 func init() {
 	// read variables from config file
 	if config, err := getConfig(); err == nil {
-		apiToken = config.ApiToken
+		apiToken = config.APIToken
 		ngrokBinPath = config.NgrokBinPath
 		availableIds = config.AvailableIds
 		monitorInterval = config.MonitorInterval
@@ -131,7 +131,7 @@ func init() {
 }
 
 // check if given Telegram id is available
-func isAvailableId(id string) bool {
+func isAvailableID(id string) bool {
 	for _, v := range availableIds {
 		if v == id {
 			return true
@@ -141,7 +141,7 @@ func isAvailableId(id string) bool {
 }
 
 // get tunnels' status
-func tunnelsStatus() (NgrokTunnels, error) {
+func tunnelsStatus() (ngrokTunnels, error) {
 	var res *http.Response
 	var err error
 
@@ -150,15 +150,15 @@ func tunnelsStatus() (NgrokTunnels, error) {
 
 		var body []byte
 		if body, err = ioutil.ReadAll(res.Body); err == nil {
-			var tunnels NgrokTunnels
+			var tunnels ngrokTunnels
 			if err = json.Unmarshal(body, &tunnels); err == nil {
 				return tunnels, nil
+			}
+
+			if isVerbose {
+				_stderr.Printf("failed to parse api response: %s", string(body))
 			} else {
-				if isVerbose {
-					_stderr.Printf("failed to parse api response: %s", string(body))
-				} else {
-					_stderr.Printf("failed to parse api response: %s", err)
-				}
+				_stderr.Printf("failed to parse api response: %s", err)
 			}
 		} else {
 			_stderr.Printf("failed to read api response: %s", err)
@@ -167,7 +167,7 @@ func tunnelsStatus() (NgrokTunnels, error) {
 		_stderr.Printf("failed to request to api: %s", err)
 	}
 
-	return NgrokTunnels{}, err
+	return ngrokTunnels{}, err
 }
 
 // launch ngrok
@@ -191,24 +191,26 @@ func launchNgrok(params ...string) (message string, success bool) {
 		_stdout.Printf("launch: starting process...")
 	}
 
-	if err := cmd.Start(); err == nil {
+	var err error
+	if err = cmd.Start(); err == nil {
 		time.Sleep(ngrokLaunchDelaySeconds * time.Second)
 
-		if tunnels, err := tunnelsStatus(); err == nil {
+		var tunnels ngrokTunnels
+		if tunnels, err = tunnelsStatus(); err == nil {
 			status := ""
 			for _, tunnel := range tunnels.Tunnels {
-				status += fmt.Sprintf("▸ %s\n    %s\n", tunnel.Name, tunnel.PublicUrl)
+				status += fmt.Sprintf("▸ %s\n    %s\n", tunnel.Name, tunnel.PublicURL)
 			}
 			if len(status) <= 0 {
 				status = messageNoTunnels
 			}
 			return status, true
-		} else {
-			return fmt.Sprintf("Failed to get tunnels status: %s", err), false
 		}
-	} else {
-		return fmt.Sprintf("Failed to launch: %s", err), false
+
+		return fmt.Sprintf("failed to get tunnels status: %s", err), false
 	}
+
+	return fmt.Sprintf("failed to launch: %s", err), false
 }
 
 // shutdown ngrok
@@ -218,39 +220,38 @@ func shutdownNgrok() (message string, success bool) {
 
 	if cmd == nil {
 		return fmt.Sprintf(messageShutdownFailedFormat, "no running process"), false
-	} else {
-
-		if isVerbose {
-			_stdout.Printf("shutdown: killing process...")
-		}
-
-		go func() {
-			cmd.Process.Kill()
-		}()
-
-		var msg string
-		if err := cmd.Wait(); err == nil {
-			msg = messageShutdownSuccessfully
-		} else {
-			msg = fmt.Sprintf(messageShutdownSuccessfullyFormat, err)
-		}
-		cmd = nil
-
-		return msg, true
 	}
+
+	if isVerbose {
+		_stdout.Printf("shutdown: killing process...")
+	}
+
+	go func() {
+		cmd.Process.Kill()
+	}()
+
+	var msg string
+	if err := cmd.Wait(); err == nil {
+		msg = messageShutdownSuccessfully
+	} else {
+		msg = fmt.Sprintf(messageShutdownSuccessfullyFormat, err)
+	}
+	cmd = nil
+
+	return msg, true
 }
 
 // process incoming update from Telegram
 func processUpdate(b *bot.Bot, update bot.Update) bool {
 	// check username
-	var userId string
+	var userID string
 	if update.Message.From.Username == nil {
 		_stderr.Printf("not allowed (no user name): %s", update.Message.From.FirstName)
 		return false
 	}
-	userId = *update.Message.From.Username
-	if !isAvailableId(userId) {
-		_stderr.Printf("id not allowed: %s\n", userId)
+	userID = *update.Message.From.Username
+	if !isAvailableID(userID) {
+		_stderr.Printf("id not allowed: %s\n", userID)
 
 		return false
 	}
@@ -286,10 +287,10 @@ func processUpdate(b *bot.Bot, update bot.Update) bool {
 		if len(tunnelParams) > 0 {
 			// inline keyboards for launching a tunnel
 			buttons := [][]bot.InlineKeyboardButton{}
-			for k, _ := range tunnelParams {
+			for k := range tunnelParams {
 				data := k
 				buttons = append(buttons, []bot.InlineKeyboardButton{
-					bot.InlineKeyboardButton{
+					{
 						Text:         k,
 						CallbackData: &data,
 					},
@@ -299,7 +300,7 @@ func processUpdate(b *bot.Bot, update bot.Update) bool {
 			// cancel button
 			cancel := commandCancel
 			buttons = append(buttons, []bot.InlineKeyboardButton{
-				bot.InlineKeyboardButton{
+				{
 					Text:         messageCancel,
 					CallbackData: &cancel,
 				},
@@ -415,7 +416,7 @@ func main() {
 		_stdout.Printf("launching bot: @%s (%s)", *me.Result.Username, me.Result.FirstName)
 
 		// delete webhook (getting updates will not work when wehbook is set up)
-		if unhooked := client.DeleteWebhook(); unhooked.Ok {
+		if unhooked := client.DeleteWebhook(true); unhooked.Ok {
 			// wait for new updates
 			client.StartMonitoringUpdates(0, monitorInterval, func(b *bot.Bot, update bot.Update, err error) {
 				if err == nil {
@@ -429,9 +430,9 @@ func main() {
 				}
 			})
 		} else {
-			panic("Failed to delete webhook")
+			panic("failed to delete webhook")
 		}
 	} else {
-		panic("Failed to get info of the bot")
+		panic("failed to get info of the bot")
 	}
 }
