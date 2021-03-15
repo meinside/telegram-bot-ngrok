@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -42,7 +43,7 @@ const (
 	messageWhatToLaunch               = "Which tunnel do you want to launch?"
 	messageCancel                     = "Cancel"
 	messageCanceled                   = "Canceled."
-	messageLaunchedSuccessfullyFormat = "Launched successfully: %s"
+	messageLaunchedSuccessfullyFormat = "Launched ngrok with params: %s"
 	messageLaunchFailed               = "Launch failed."
 	messageShutdownSuccessfully       = "Shutdown successfully."
 	messageShutdownSuccessfullyFormat = "Shutdown successfully. (%s)"
@@ -54,12 +55,45 @@ const (
 
 // struct for config file
 type config struct {
-	APIToken        string            `json:"api_token"`
-	NgrokBinPath    string            `json:"ngrok_bin_path"`
-	AvailableIds    []string          `json:"available_ids"`
-	MonitorInterval int               `json:"monitor_interval"`
-	TunnelParams    map[string]string `json:"tunnel_params"`
-	IsVerbose       bool              `json:"is_verbose"`
+	APIToken        string   `json:"api_token"`
+	NgrokBinPath    string   `json:"ngrok_bin_path"`
+	AvailableIds    []string `json:"available_ids"`
+	MonitorInterval int      `json:"monitor_interval"`
+	Tunnels         []tunnel `json:"tunnels"`
+	IsVerbose       bool     `json:"is_verbose"`
+}
+
+// tunnel struct
+type tunnel struct {
+	Title    string  `json:"title"`
+	Protocol string  `json:"protocol"`
+	Port     int     `json:"port"`
+	Option   *string `json:"option,omitempty"`
+}
+
+func (t *tunnel) toParams() []string {
+	strs := []string{}
+	strs = append(strs, t.Protocol)
+	if t.Option != nil {
+		strs = append(strs, *t.Option)
+	}
+	strs = append(strs, strconv.Itoa(t.Port))
+
+	return strs
+}
+
+func (t *tunnel) toString() string {
+	return strings.Join(t.toParams(), " ")
+}
+
+func tunnelWithTitle(title string) (tunnel, error) {
+	for i, v := range tunnels {
+		if v.Title == title {
+			return tunnels[i], nil
+		}
+	}
+
+	return tunnel{}, fmt.Errorf("no such tunnel with title: %s", title)
 }
 
 // Read config
@@ -83,7 +117,7 @@ var apiToken string
 var ngrokBinPath string
 var availableIds []string
 var monitorInterval int
-var tunnelParams map[string]string
+var tunnels []tunnel
 var isVerbose bool
 
 // keyboards
@@ -123,7 +157,7 @@ func init() {
 		if monitorInterval <= 0 {
 			monitorInterval = defaultMonitorIntervalSeconds
 		}
-		tunnelParams = config.TunnelParams
+		tunnels = config.Tunnels
 		isVerbose = config.IsVerbose
 	} else {
 		panic(err)
@@ -284,14 +318,14 @@ func processUpdate(b *bot.Bot, update bot.Update) bool {
 		message = messageDefault
 	// launch
 	case strings.HasPrefix(txt, commandLaunchNgrok):
-		if len(tunnelParams) > 0 {
+		if len(tunnels) > 0 {
 			// inline keyboards for launching a tunnel
 			buttons := [][]bot.InlineKeyboardButton{}
-			for k := range tunnelParams {
-				data := k
+			for _, t := range tunnels {
+				data := t.Title
 				buttons = append(buttons, []bot.InlineKeyboardButton{
 					{
-						Text:         k,
+						Text:         data,
 						CallbackData: &data,
 					},
 				})
@@ -348,21 +382,24 @@ func processCallbackQuery(b *bot.Bot, update bot.Update) bool {
 	// 'is typing...'
 	b.SendChatAction(query.Message.Chat.ID, bot.ChatActionTyping)
 
+	var selectedTunnel tunnel
 	var message string = ""
 	if strings.HasPrefix(txt, commandCancel) { // cancel command
 		message = ""
 	} else {
-		if paramStr, exists := tunnelParams[txt]; exists {
-			params := strings.Split(paramStr, " ")
-			if len(params) > 0 {
-				message, launchSuccessful = launchNgrok(params...)
+		if tunnel, err := tunnelWithTitle(txt); err == nil {
+			selectedTunnel = tunnel
+			launchParams := selectedTunnel.toParams()
+
+			if len(launchParams) > 0 {
+				message, launchSuccessful = launchNgrok(launchParams...)
 			} else {
 				_stderr.Printf("no tunnel parameter")
 
 				return result // == false
 			}
 		} else {
-			_stderr.Printf("unprocessable callback query: %s", txt)
+			_stderr.Printf("unprocessable callback query: %s", err)
 
 			return result // == false
 		}
@@ -372,7 +409,7 @@ func processCallbackQuery(b *bot.Bot, update bot.Update) bool {
 	options := map[string]interface{}{}
 	if len(message) > 0 {
 		if launchSuccessful {
-			options["text"] = fmt.Sprintf(messageLaunchedSuccessfullyFormat, txt)
+			options["text"] = fmt.Sprintf(messageLaunchedSuccessfullyFormat, selectedTunnel.toString())
 		} else {
 			options["text"] = messageLaunchFailed
 		}

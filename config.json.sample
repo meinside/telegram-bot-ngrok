@@ -6,9 +6,19 @@
 		"telegram_id2"
 	],
 	"monitor_interval": 3,
-	"tunnel_params": {
-		"http/s on port 8080": "http 8888",
-		"ssh on port 22": "tcp 22"
-	},
+	"tunnels": [
+		{
+			"title": "http/s on port 8080",
+			"protocol": "http",
+			"port": 8888,
+			"option": ""
+		},
+		{
+			"title": "ssh on port 22",
+			"protocol": "tcp",
+			"port": 22,
+			"option": "-region=ap"
+		}
+	],
 	"is_verbose": false
 }
